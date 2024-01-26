@@ -119,7 +119,7 @@ public class Scanner {
         if (isAtEnd()) return false;
         if (source.charAt(current) != target) { return false; }
 
-        current++;
+        next();
         return true;
     }
 

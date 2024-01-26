@@ -1,8 +1,10 @@
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class Parser {
     private static class ParseError extends RuntimeException {}
-
     private final List<Token> tokens;
     private int curr = 0;
 
@@ -10,16 +12,173 @@ public class Parser {
         this.tokens = tokens;
     }
 
-    Expr parse() {
+    List<Stmt> parse() {
+        List<Stmt> statements = new ArrayList<>();
+
+        while(!isAtEnd()) {
+            statements.add(declaration());
+        }
+
+        return statements;
+    }
+
+    private Stmt declaration() {
         try {
-            return expression();
-        } catch (ParseError error) {
-            return null;
+            if (match(TokenType.VAR)) { return varStatement(); }
+            return statement();
+        } catch (ParseError err) {
+           synchronize();
+           return null;
         }
     }
 
+    private Stmt varStatement() {
+        Token name = consume(TokenType.IDENTIFIER, "Expected variable to have a name");
+
+        Expr initializer = null;
+        if (match(TokenType.EQUAL)) {
+            initializer = expression();
+        }
+
+        consume(TokenType.SEMICOLON, "Expected ';' after a variable declaration");
+        return new Stmt.Var(name, initializer);
+    }
+
+    private Stmt statement() {
+        if (match(TokenType.PRINT)) { return printStatement(); }
+        if (match(TokenType.LEFT_BRACE)) { return new Stmt.Block(block()); }
+        if (match(TokenType.IF)) { return ifStatement(); }
+        if (match(TokenType.WHILE)) { return whileStatement(); }
+        if (match(TokenType.FOR)) { return forStatement(); }
+        return expressionStatement();
+    }
+
+    private Stmt forStatement() {
+        consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'.");
+
+        Stmt initializer;
+        if (match(TokenType.SEMICOLON)) {
+            initializer = null;
+        } else if (match(TokenType.VAR)) {
+            initializer = varStatement();
+        } else {
+            initializer = expressionStatement();
+        }
+
+        Expr condition = null;
+        if (!check(TokenType.SEMICOLON)) {
+            condition = expression();
+        }
+        consume(TokenType.SEMICOLON, "Expect ';' after loop condition.");
+
+        Expr increment = null;
+        if (!check(TokenType.RIGHT_PAREN)) {
+            increment = expression();
+        }
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after for clauses.");
+
+        Stmt body = statement();
+
+        if (increment != null) {
+            body = new Stmt.Block(
+                    Arrays.asList(
+                            body,
+                            new Stmt.Expression(increment)));
+        }
+
+        if (condition == null) {
+            condition = new Expr.Literal(true);
+        }
+        body = new Stmt.While(condition, body);
+
+        if (initializer != null) {
+            body = new Stmt.Block(Arrays.asList(initializer, body));
+        }
+
+        return body;
+    }
+
+    private Stmt whileStatement() {
+        consume(TokenType.LEFT_PAREN, "Expected a `(` after an if statement");
+        Expr condition = expression();
+        consume(TokenType.RIGHT_PAREN, "Expected a `)` after an if statement's condition");
+
+        Stmt body = statement();
+
+        return new Stmt.While(condition, body);
+    }
+
+    private Stmt printStatement() {
+        Expr expr = expression();
+        consume(TokenType.SEMICOLON, "Expected a `;` terminated print expression");
+        return new Stmt.Print(expr);
+    }
+
+    private Stmt expressionStatement() {
+        Expr expr = expression();
+        consume(TokenType.SEMICOLON, "Expected a `;` after an expression");
+        return new Stmt.Expression(expr);
+    }
+
+    private Stmt ifStatement() {
+        consume(TokenType.LEFT_PAREN, "Expected a `(` after an if statement");
+        Expr condition = expression();
+        consume(TokenType.RIGHT_PAREN, "Expected a `)` after an if statement's condition");
+
+        Stmt thenBranch = statement();
+
+        Stmt elseBranch = null;
+        if (match(TokenType.ELSE)) {
+            elseBranch = statement();
+        }
+
+        return new Stmt.If(condition, thenBranch, elseBranch);
+    }
+
     private Expr expression() {
-        return equality();
+        return assignment();
+    }
+
+    private Expr assignment() {
+        Expr expr = or();
+
+        if (match(TokenType.EQUAL)) {
+            Token equals = previous();
+            Expr value = assignment();
+
+            if (expr instanceof Expr.Variable) {
+                Token name = ((Expr.Variable)expr).name;
+                return new Expr.Assign(name, value);
+            }
+
+            Lox.error(equals, "Invalid assignment target");
+        }
+
+        return expr;
+    }
+
+    private Expr or() {
+        Expr expr = and();
+
+        while (match(TokenType.OR)) {
+           Token operator = previous();
+           Expr right = and();
+           expr = new Expr.Logical(expr, operator, right);
+        }
+
+        return expr;
+    }
+
+    private Expr and() {
+        Expr expr = equality();
+
+        while (match(TokenType.AND)) {
+            Token operator = previous();
+            Expr right = equality();
+            expr = new Expr.Logical(expr, operator, right);
+        }
+
+        return expr;
     }
 
     private Expr equality() {
@@ -89,6 +248,8 @@ public class Parser {
             return new Expr.Literal(previous().literal);
         }
 
+        if (match(TokenType.IDENTIFIER)) { return new Expr.Variable(previous()); }
+
         if (match(TokenType.LEFT_PAREN)) {
             Expr expr = expression();
             consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
@@ -96,6 +257,17 @@ public class Parser {
         }
 
         throw error(peek(), "Expects expression.");
+    }
+
+    private List<Stmt> block() {
+        List<Stmt> statements = new ArrayList<>();
+
+        while (!check(TokenType.RIGHT_BRACE) || isAtEnd()) {
+            statements.add(declaration());
+        }
+
+        consume(TokenType.RIGHT_BRACE, "Expected '}' after a block");
+        return statements;
     }
 
     private Token consume(TokenType type, String message) {
