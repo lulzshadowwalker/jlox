@@ -21,17 +21,21 @@ public class GenerateAst {
                 "Literal  : Object value",
                 "Unary    : Token operator, Expr right",
                 "Variable : Token name",
-                "Assign   : Token name, Expr value"
+                "Assign   : Token name, Expr value",
+                "Call : Expr callee, Token paren, List<Expr> arguments"
         ));
 
         defineAst(outputDir, "Stmt", Arrays.asList(
                 "Print      : Expr expression",
                 "Expression : Expr expression",
                 "Var        : Token name, Expr initializer",
+                "Function : Token name, List<Token> parameters, List<Stmt> body",
                 "Block      : List<Stmt> statements",
                 "If         : Expr condition, Stmt thenBranch, Stmt elseBranch",
-                "While      : Expr condition, Stmt body"
-        ));
+                "While      : Expr condition, Stmt body",
+                "Return     : Token keyword, Expr value"
+
+                ));
     }
 
     private static void defineAst(

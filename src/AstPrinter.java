@@ -42,6 +42,11 @@ class AstPrinter implements Expr.Visitor<String> {
         throw new Error("unimplemented");
     }
 
+    @Override
+    public String visitCallExpr(Expr.Call expr) {
+        throw new Error("unimplemented");
+    }
+
     private String parenthesize(String name, Expr... exprs) {
         StringBuilder builder = new StringBuilder();
 

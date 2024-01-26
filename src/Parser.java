@@ -22,16 +22,16 @@ public class Parser {
         return statements;
     }
 
-    private Stmt declaration() {
-        try {
-            if (match(TokenType.VAR)) { return varStatement(); }
-            return statement();
-        } catch (ParseError err) {
-           synchronize();
-           return null;
-        }
+  private Stmt declaration() {
+    try {
+        if (match(TokenType.VAR)) { return varStatement(); }
+        if (match(TokenType.FUN)) { return function("function"); }
+        return statement();
+    } catch (ParseError err) {
+        synchronize();
+        return null;
     }
-
+  }
     private Stmt varStatement() {
         Token name = consume(TokenType.IDENTIFIER, "Expected variable to have a name");
 
@@ -44,12 +44,37 @@ public class Parser {
         return new Stmt.Var(name, initializer);
     }
 
+    private Stmt function(String kind) {
+       Token name = consume(TokenType.IDENTIFIER, "Expected " + kind + " name");
+
+        consume(TokenType.LEFT_PAREN, "Expect '(' after " + kind + " name.");
+        List<Token> parameters = new ArrayList<>();
+        if (!check(TokenType.RIGHT_PAREN)) {
+            do {
+                if (parameters.size() >= 255) {
+                    // in Java, you cannot have more than 255 + it's easier for the bytecode vm in the C version
+                    //  1 of those 255 in Java is reserved for `this` the caller, so it's 254
+                    Lox.error(peek(), "Can't have more than 255 parameters.");
+                }
+
+                parameters.add(
+                        consume(TokenType.IDENTIFIER, "Expect parameter name."));
+            } while (match(TokenType.COMMA));
+        }
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.");
+
+        consume(TokenType.LEFT_BRACE, "Expect '{' before " + kind + " body.");
+        List<Stmt> body = block();
+        return new Stmt.Function(name, parameters, body);
+    }
+
     private Stmt statement() {
         if (match(TokenType.PRINT)) { return printStatement(); }
         if (match(TokenType.LEFT_BRACE)) { return new Stmt.Block(block()); }
         if (match(TokenType.IF)) { return ifStatement(); }
         if (match(TokenType.WHILE)) { return whileStatement(); }
         if (match(TokenType.FOR)) { return forStatement(); }
+        if (match(TokenType.RETURN)) { return returnStatement(); }
         return expressionStatement();
     }
 
@@ -112,6 +137,18 @@ public class Parser {
         Expr expr = expression();
         consume(TokenType.SEMICOLON, "Expected a `;` terminated print expression");
         return new Stmt.Print(expr);
+    }
+
+    private Stmt returnStatement() {
+        Token keyword = previous();
+
+        Expr value = null;
+        if (!check(TokenType.SEMICOLON)) {
+            value = expression();
+        }
+
+        consume(TokenType.SEMICOLON, "Expect ';' after return value");
+        return new Stmt.Return(keyword, value);
     }
 
     private Stmt expressionStatement() {
@@ -236,7 +273,17 @@ public class Parser {
             return new Expr.Unary(operator, right);
         }
 
-        return primary();
+        return call();
+    }
+
+    private Expr call() {
+        Expr callee = primary();
+
+        while (match(TokenType.LEFT_PAREN)) {
+            callee = finishCall(callee);
+        }
+
+        return callee;
     }
 
     private Expr primary() {
@@ -257,6 +304,24 @@ public class Parser {
         }
 
         throw error(peek(), "Expects expression.");
+    }
+
+    private Expr finishCall(Expr callee) {
+        List<Expr> arguments = new ArrayList<>();
+        if (!check(TokenType.RIGHT_PAREN)) {
+            do {
+                if (arguments.size() >= 255) {
+                    Lox.error(peek(), "Can't have more than 255 arguments.");
+                }
+                
+                arguments.add(expression());
+            } while (match(TokenType.COMMA));
+        }
+
+        Token paren = consume(TokenType.RIGHT_PAREN,
+                "Expect ')' after arguments.");
+
+        return new Expr.Call(callee, paren, arguments);
     }
 
     private List<Stmt> block() {
