@@ -22,16 +22,17 @@ public class Parser {
         return statements;
     }
 
-  private Stmt declaration() {
-    try {
-        if (match(TokenType.VAR)) { return varStatement(); }
-        if (match(TokenType.FUN)) { return function("function"); }
-        return statement();
-    } catch (ParseError err) {
-        synchronize();
-        return null;
+    private Stmt declaration() {
+        try {
+            if (match(TokenType.VAR)) { return varStatement(); }
+            if (match(TokenType.CLASS)) { return klass(); }
+            if (match(TokenType.FUN)) { return function("function"); }
+            return statement();
+        } catch (ParseError err) {
+            synchronize();
+            return null;
+        }
     }
-  }
     private Stmt varStatement() {
         Token name = consume(TokenType.IDENTIFIER, "Expected variable to have a name");
 
@@ -44,8 +45,21 @@ public class Parser {
         return new Stmt.Var(name, initializer);
     }
 
+    private Stmt klass() {
+        Token name = consume(TokenType.IDENTIFIER, "Expected a class name");
+        consume(TokenType.LEFT_BRACE, "Expected '{' after class name");
+
+        List<Stmt.Function> methods = new ArrayList<>();
+        while (!check(TokenType. RIGHT_BRACE) && !isAtEnd()) {
+            methods.add((Stmt.Function)function("method")); // TODO: check return type of `function`
+        }
+
+        consume(TokenType.RIGHT_BRACE, "Expected '}' after class");
+        return new Stmt.Class(name, methods);
+    }
+
     private Stmt function(String kind) {
-       Token name = consume(TokenType.IDENTIFIER, "Expected " + kind + " name");
+        Token name = consume(TokenType.IDENTIFIER, "Expected " + kind + " name");
 
         consume(TokenType.LEFT_PAREN, "Expect '(' after " + kind + " name.");
         List<Token> parameters = new ArrayList<>();
@@ -186,6 +200,8 @@ public class Parser {
             if (expr instanceof Expr.Variable) {
                 Token name = ((Expr.Variable)expr).name;
                 return new Expr.Assign(name, value);
+            } else if (expr instanceof Expr.Get get) {
+                return new Expr.Set(get.object, get.name, value);
             }
 
             Lox.error(equals, "Invalid assignment target");
@@ -198,9 +214,9 @@ public class Parser {
         Expr expr = and();
 
         while (match(TokenType.OR)) {
-           Token operator = previous();
-           Expr right = and();
-           expr = new Expr.Logical(expr, operator, right);
+            Token operator = previous();
+            Expr right = and();
+            expr = new Expr.Logical(expr, operator, right);
         }
 
         return expr;
@@ -277,13 +293,21 @@ public class Parser {
     }
 
     private Expr call() {
-        Expr callee = primary();
+        // beautiful.
+        Expr expr = primary();
 
-        while (match(TokenType.LEFT_PAREN)) {
-            callee = finishCall(callee);
+        while (true) {
+            if (match(TokenType.LEFT_PAREN)) {
+                expr = finishCall(expr);
+            } else if (match(TokenType.DOT)) {
+                Token name = consume(TokenType.IDENTIFIER, "Expected property name after '.'");
+                expr = new Expr.Get(expr, name);
+            } else {
+                break;
+            }
         }
 
-        return callee;
+        return expr;
     }
 
     private Expr primary() {
@@ -295,6 +319,7 @@ public class Parser {
             return new Expr.Literal(previous().literal);
         }
 
+        if (match(TokenType.THIS)) { return new Expr.This(previous()); }
         if (match(TokenType.IDENTIFIER)) { return new Expr.Variable(previous()); }
 
         if (match(TokenType.LEFT_PAREN)) {
@@ -313,7 +338,7 @@ public class Parser {
                 if (arguments.size() >= 255) {
                     Lox.error(peek(), "Can't have more than 255 arguments.");
                 }
-                
+
                 arguments.add(expression());
             } while (match(TokenType.COMMA));
         }

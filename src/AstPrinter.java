@@ -43,7 +43,22 @@ class AstPrinter implements Expr.Visitor<String> {
     }
 
     @Override
+    public String visitGetExpr(Expr.Get expr) {
+        throw new Error("unimplemented");
+    }
+
+    @Override
+    public String visitSetExpr(Expr.Set expr) {
+        throw new Error("unimplemented");
+    }
+
+    @Override
     public String visitCallExpr(Expr.Call expr) {
+        throw new Error("unimplemented");
+    }
+
+    @Override
+    public String visitThisExpr(Expr.This expr) {
         throw new Error("unimplemented");
     }
 

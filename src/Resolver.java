@@ -6,6 +6,7 @@ import java.util.Stack;public class Resolver implements  Expr.Visitor<Void>, Stm
     private final Interpreter interpreter;
     private final Stack<Map<String, Boolean>> scopes = new Stack<>();
     private FunctionType currentFunction = FunctionType.NONE;
+    private ClassType currentClass = ClassType.NONE;
 
     Resolver(Interpreter interpreter) {
         this.interpreter = interpreter;
@@ -62,6 +63,24 @@ import java.util.Stack;public class Resolver implements  Expr.Visitor<Void>, Stm
     }
 
     @Override
+    public Void visitGetExpr(Expr.Get expr) {
+        /**
+         * Since properties are looked up dynamically, they don’t get resolved.
+         * During resolution, we recurse only into the expression to the left of the dot.
+         * The actual property access happens in the interpreter.
+         */
+        resolve(expr.object);
+        return null;
+    }
+
+    @Override
+    public Void visitSetExpr(Expr.Set expr) {
+        resolve(expr.value);
+        resolve(expr.object);
+        return null;
+    }
+
+    @Override
     public Void visitCallExpr(Expr.Call expr) {
         resolve(expr.callee);
 
@@ -69,6 +88,16 @@ import java.util.Stack;public class Resolver implements  Expr.Visitor<Void>, Stm
             resolve(argument);
         }
 
+        return null;
+    }
+
+    @Override
+    public Void visitThisExpr(Expr.This expr) {
+        if (currentClass == ClassType.NONE) {
+            Lox.error(expr.keyword, "Can't use `this` outside of a class");
+        }
+
+        resolveLocal(expr, expr.keyword);
         return null;
     }
 
@@ -92,6 +121,33 @@ import java.util.Stack;public class Resolver implements  Expr.Visitor<Void>, Stm
         }
         define(stmt.name);
 
+        return null;
+    }
+
+    @Override
+    public Void visitClassStmt(Stmt.Class stmt) {
+        final ClassType enclosingClass = currentClass;
+        currentClass = ClassType.CLASS;
+
+        declare(stmt.name);
+        define(stmt.name);
+
+        beginScope();
+        scopes.peek().put("this", true);
+
+        for (Stmt.Function method : stmt.methods) {
+            FunctionType declaration = FunctionType.METHOD;
+
+            if (method.name.lexeme.equals("init")) {
+                declaration = FunctionType.INITIALIZER;
+            }
+
+            resolveFunction(method, declaration);
+        }
+
+        endScope();
+
+        currentClass = enclosingClass;
         return null;
     }
 
@@ -132,6 +188,11 @@ import java.util.Stack;public class Resolver implements  Expr.Visitor<Void>, Stm
     public Void visitReturnStmt(Stmt.Return stmt) {
         if (currentFunction == FunctionType.NONE) {
             Lox.error(stmt.keyword, "Can't return from top-level code.");
+        }
+
+        if (currentFunction == FunctionType.INITIALIZER) {
+            Lox.error(stmt.keyword,
+                    "Can't return a value from an initializer.");
         }
 
         if (stmt.value != null) {
@@ -210,6 +271,14 @@ import java.util.Stack;public class Resolver implements  Expr.Visitor<Void>, Stm
 
     private enum FunctionType {
         NONE,
-        FUNCTION
+        FUNCTION,
+        METHOD,
+        INITIALIZER,
+
+    }
+
+    private enum ClassType {
+        NONE,
+        CLASS,
     }
 }

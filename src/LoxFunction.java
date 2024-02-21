@@ -1,12 +1,18 @@
 import java.util.List;
 
 public class LoxFunction implements LoxCallable {
-    private Environment closure;
-    private Stmt.Function declaration;
+    private final Environment closure;
+    private final Stmt.Function declaration;
+    private final boolean isInitializer;
 
-    LoxFunction(Stmt.Function declaration, Environment closure) {
+    LoxFunction(
+            Stmt.Function declaration,
+            Environment closure,
+            boolean isInitializer
+    ) {
         this.declaration = declaration;
         this.closure = closure;
+        this.isInitializer = isInitializer;
     }
 
     @Override
@@ -35,10 +41,24 @@ public class LoxFunction implements LoxCallable {
             return ret.value;
         }
 
+        if (isInitializer) { closure.getAt(0, "this"); }
         return null;
+    }
+
+    public LoxFunction bind(LoxInstance instance) {
+        /**
+         * you define an implicit scope just outside the methods scope that define or binds to an instance
+         */
+        final Environment environment = new Environment(closure);
+        environment.define("this", instance);
+        return new LoxFunction(declaration, environment, isInitializer);
     }
 
     @Override
     public String toString() {
         return "<fn " + declaration.name.lexeme + ">";
-    }}
+    }
+
+}
+
+
