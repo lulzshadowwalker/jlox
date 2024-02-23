@@ -47,6 +47,13 @@ public class Parser {
 
     private Stmt klass() {
         Token name = consume(TokenType.IDENTIFIER, "Expected a class name");
+
+        Expr.Variable superClass = null;
+        if (match(TokenType.LESS)) {
+            consume(TokenType.IDENTIFIER, "Expected super class name");
+            superClass = new Expr.Variable(previous());
+        }
+
         consume(TokenType.LEFT_BRACE, "Expected '{' after class name");
 
         List<Stmt.Function> methods = new ArrayList<>();
@@ -55,7 +62,7 @@ public class Parser {
         }
 
         consume(TokenType.RIGHT_BRACE, "Expected '}' after class");
-        return new Stmt.Class(name, methods);
+        return new Stmt.Class(name, superClass, methods);
     }
 
     private Stmt function(String kind) {
@@ -138,9 +145,9 @@ public class Parser {
     }
 
     private Stmt whileStatement() {
-        consume(TokenType.LEFT_PAREN, "Expected a `(` after an if statement");
+        consume(TokenType.LEFT_PAREN, "Expected a `(` after a while statement");
         Expr condition = expression();
-        consume(TokenType.RIGHT_PAREN, "Expected a `)` after an if statement's condition");
+        consume(TokenType.RIGHT_PAREN, "Expected a `)` after a while statement's condition");
 
         Stmt body = statement();
 
@@ -311,15 +318,34 @@ public class Parser {
     }
 
     private Expr primary() {
-        if (match(TokenType.FALSE)) { return new Expr.Literal(false); }
-        if (match(TokenType.TRUE)) { return new Expr.Literal(true); }
-        if (match(TokenType.NIL)) { return new Expr.Literal(null); }
+        if (match(TokenType.FALSE)) {
+            return new Expr.Literal(false);
+        }
+        if (match(TokenType.TRUE)) {
+            return new Expr.Literal(true);
+        }
+        if (match(TokenType.NIL)) {
+            return new Expr.Literal(null);
+        }
 
         if (match(TokenType.NUMBER, TokenType.STRING)) {
             return new Expr.Literal(previous().literal);
         }
 
-        if (match(TokenType.THIS)) { return new Expr.This(previous()); }
+        if (match(TokenType.THIS)) {
+            return new Expr.This(previous());
+        }
+
+        if (match(TokenType.SUPER)) {
+            Token keyword = previous();
+
+            consume(TokenType.DOT, "Expect '.' after 'super'");
+            Token method = consume(TokenType.IDENTIFIER,
+                    "Expect superclass method name");
+
+            return new Expr.Super(keyword, method);
+        }
+
         if (match(TokenType.IDENTIFIER)) { return new Expr.Variable(previous()); }
 
         if (match(TokenType.LEFT_PAREN)) {

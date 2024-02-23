@@ -25,14 +25,15 @@ public class GenerateAst {
                 "Get      : Expr object, Token name",
                 "Set      : Expr object, Token name, Expr value",
                 "Call     : Expr callee, Token paren, List<Expr> arguments",
-                "This     : Token keyword"
+                "This     : Token keyword",
+                "Super    : Token keyword, Token method"
         ));
 
         defineAst(outputDir, "Stmt", Arrays.asList(
                 "Print      : Expr expression",
                 "Expression : Expr expression",
                 "Var        : Token name, Expr initializer",
-                "Class      : Token name, List<Stmt.Function> methods",
+                "Class      : Token name, Expr.Variable superClass, List<Stmt.Function> methods",
                 "Function   : Token name, List<Token> parameters, List<Stmt> body",
                 "Block      : List<Stmt> statements",
                 "If         : Expr condition, Stmt thenBranch, Stmt elseBranch",

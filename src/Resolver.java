@@ -102,6 +102,20 @@ import java.util.Stack;public class Resolver implements  Expr.Visitor<Void>, Stm
     }
 
     @Override
+    public Void visitSuperExpr(Expr.Super expr) {
+        if (currentClass == ClassType.NONE) {
+            Lox.error(expr.keyword,
+                    "Can't use 'super' outside of a class.");
+        } else if (currentClass != ClassType.SUBCLASS) {
+            Lox.error(expr.keyword,
+                    "Can't use 'super' in a class with no superclass.");
+        }
+
+        resolveLocal(expr, expr.keyword);
+        return null;
+    }
+
+    @Override
     public Void visitPrintStmt(Stmt.Print stmt) {
         resolve(stmt.expression);
         return null;
@@ -132,6 +146,19 @@ import java.util.Stack;public class Resolver implements  Expr.Visitor<Void>, Stm
         declare(stmt.name);
         define(stmt.name);
 
+        if (stmt.superClass != null) {
+            if (stmt.name.lexeme.equals(stmt.superClass.name.lexeme)) {
+                Lox.error(stmt.superClass.name,
+                        "A class can't inherit from itself.");
+            }
+
+            currentClass = ClassType.SUBCLASS;
+            resolve(stmt.superClass);
+
+            beginScope();
+            scopes.peek().put("super", true);
+        }
+
         beginScope();
         scopes.peek().put("this", true);
 
@@ -146,6 +173,7 @@ import java.util.Stack;public class Resolver implements  Expr.Visitor<Void>, Stm
         }
 
         endScope();
+        if (stmt.superClass != null) { endScope(); }
 
         currentClass = enclosingClass;
         return null;
@@ -280,5 +308,6 @@ import java.util.Stack;public class Resolver implements  Expr.Visitor<Void>, Stm
     private enum ClassType {
         NONE,
         CLASS,
+        SUBCLASS,
     }
 }
