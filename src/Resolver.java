@@ -46,7 +46,7 @@ import java.util.Stack;public class Resolver implements  Expr.Visitor<Void>, Stm
     @Override
     public Void visitVariableExpr(Expr.Variable expr) {
         if (!scopes.isEmpty() &&
-            !scopes.peek().get(expr.name.lexeme)) {
+            scopes.peek().get(expr.name.lexeme) == Boolean.FALSE) {
             Lox.error(expr.name,
                     "Can't read local variable in its own initializer.");
         }
