@@ -41,7 +41,7 @@ public class LoxFunction implements LoxCallable {
             return ret.value;
         }
 
-        if (isInitializer) { closure.getAt(0, "this"); }
+        if (isInitializer) { closure.getAt(0, "это"); }
         return null;
     }
 
@@ -50,7 +50,7 @@ public class LoxFunction implements LoxCallable {
          * you define an implicit scope just outside the methods scope that define or binds to an instance
          */
         final Environment environment = new Environment(closure);
-        environment.define("this", instance);
+        environment.define("это", instance);
         return new LoxFunction(declaration, environment, isInitializer);
     }
 

@@ -33,7 +33,7 @@ public class LoxClass implements LoxCallable {
 
     @Override
     public int arity() {
-        LoxFunction initializer = findMethod("init");
+        LoxFunction initializer = findMethod("инициализатор");
         if (initializer == null) return 0;
         return initializer.arity();
     }
@@ -42,7 +42,7 @@ public class LoxClass implements LoxCallable {
     public Object call(Interpreter interpreter, List<Object> arguments) {
         final LoxInstance instance = new LoxInstance(this);
 
-        final LoxFunction initializer = findMethod("init");
+        final LoxFunction initializer = findMethod("инициализатор");
         if (initializer != null) {
             initializer.bind(instance).call(interpreter, arguments);
         }

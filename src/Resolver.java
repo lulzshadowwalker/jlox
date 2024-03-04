@@ -156,16 +156,16 @@ import java.util.Stack;public class Resolver implements  Expr.Visitor<Void>, Stm
             resolve(stmt.superClass);
 
             beginScope();
-            scopes.peek().put("super", true);
+            scopes.peek().put("супер", true);
         }
 
         beginScope();
-        scopes.peek().put("this", true);
+        scopes.peek().put("это", true);
 
         for (Stmt.Function method : stmt.methods) {
             FunctionType declaration = FunctionType.METHOD;
 
-            if (method.name.lexeme.equals("init")) {
+            if (method.name.lexeme.equals("инициализатор")) {
                 declaration = FunctionType.INITIALIZER;
             }
 

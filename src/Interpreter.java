@@ -52,6 +52,14 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                     return (String)left + (String)right;
                 }
 
+                if (left instanceof Double && right instanceof String) {
+                    return left.toString() + right;
+                }
+
+                if (left instanceof String && right instanceof Double) {
+                    return left + right.toString();
+                }
+
                 throw new RuntimeError(
                         expr.operator,
                         "Operands must be two numbers or two strings."
@@ -208,10 +216,10 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public Object visitSuperExpr(Expr.Super expr) {
         int distance = locals.get(expr);
         LoxClass superclass = (LoxClass)environment.getAt(
-                distance, "super");
+                distance, "супер");
 
         LoxInstance object = (LoxInstance)environment.getAt(
-                distance - 1, "this");
+                distance - 1, "это");
 
         LoxFunction method = superclass.findMethod(expr.method.lexeme);
 
@@ -333,7 +341,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
         if (stmt.superClass != null) {
             environment = new Environment(environment);
-            environment.define("super", superClass);
+            environment.define("супер", superClass);
         }
 
         /**
@@ -344,7 +352,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
          */
         final Map<String, LoxFunction> methods = new HashMap<>();
         for (Stmt.Function method : stmt.methods) {
-            final boolean isInitializer = method.name.lexeme.equals("this");
+            final boolean isInitializer = method.name.lexeme.equals("это");
             final LoxFunction function = new LoxFunction(method, environment, isInitializer);
             methods.put(method.name.lexeme, function);
         }
